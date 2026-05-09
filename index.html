@@ -1,0 +1,125 @@
+<!doctype html>
+<html lang="zh-CN">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>AI 花店 3D Studio</title>
+    <link rel="stylesheet" href="./styles.css" />
+  </head>
+  <body>
+    <main class="app-shell">
+      <section class="studio-panel">
+        <header class="brand-bar">
+          <div>
+            <p class="kicker">AI Florist 3D Studio</p>
+            <h1>花艺搭配台</h1>
+          </div>
+          <button class="icon-button" id="randomizeBtn" type="button" aria-label="随机生成" title="随机生成">↻</button>
+        </header>
+
+        <div class="ai-disclosure">
+          当前版本使用本地模拟花艺规划，还没有连接真实 AI API。下一步可接入图像识别和花束方案生成接口。
+        </div>
+
+        <div class="tool-section upload-zone" id="uploadZone">
+          <input id="flowerUpload" type="file" accept="image/*" />
+          <div class="upload-copy">
+            <strong>上传参考照片</strong>
+            <span id="uploadLabel">用于提取色调和花束风格，当前为原型模拟</span>
+          </div>
+          <div class="upload-preview" id="uploadPreview" aria-hidden="true"></div>
+        </div>
+
+        <div class="tool-section">
+          <div class="section-head">
+            <h2>选择花材</h2>
+            <span id="stemCount">18 枝</span>
+          </div>
+          <div class="shop-shelf" id="flowerShelf"></div>
+        </div>
+
+        <div class="tool-section">
+          <div class="section-head">
+            <h2>包装纸</h2>
+            <span id="wrapLabel">雾面米白</span>
+          </div>
+          <div class="wrap-grid" id="wrapGrid"></div>
+        </div>
+
+        <div class="tool-section controls-grid">
+          <label>
+            <span>花束密度</span>
+            <input id="densityRange" type="range" min="8" max="32" value="18" />
+          </label>
+          <label>
+            <span>高度层次</span>
+            <input id="heightRange" type="range" min="0" max="100" value="58" />
+          </label>
+          <label>
+            <span>展开角度</span>
+            <input id="spreadRange" type="range" min="20" max="92" value="54" />
+          </label>
+          <label>
+            <span>绿叶比例</span>
+            <input id="leafRange" type="range" min="0" max="100" value="42" />
+          </label>
+        </div>
+
+        <div class="tool-section">
+          <div class="section-head">
+            <h2>用途</h2>
+            <span id="moodLabel">温柔庆祝</span>
+          </div>
+          <div class="segmented" id="occasionTabs">
+            <button class="active" type="button" data-occasion="celebration">庆祝</button>
+            <button type="button" data-occasion="proposal">求婚</button>
+            <button type="button" data-occasion="home">家居</button>
+            <button type="button" data-occasion="gift">礼物</button>
+          </div>
+        </div>
+
+        <button class="primary-action" id="generateBtn" type="button">
+          生成花艺师搭配方案
+        </button>
+      </section>
+
+      <section class="viewer-panel">
+        <div class="viewer-toolbar">
+          <div>
+            <p class="kicker">花束预览</p>
+            <h2 id="bouquetTitle">晨光玫瑰花束</h2>
+          </div>
+          <div class="toolbar-actions">
+            <button class="ghost-button" id="exportBtn" type="button">导出渲染图</button>
+          </div>
+        </div>
+
+        <div class="canvas-wrap">
+          <canvas id="bouquetCanvas"></canvas>
+          <div class="render-badge" id="renderBadge">florist arranging</div>
+        </div>
+
+        <div class="result-strip">
+          <article>
+            <span>主花选择</span>
+            <strong id="heroFlower">玫瑰 · 郁金香</strong>
+          </article>
+          <article>
+            <span>色彩方向</span>
+            <strong id="paletteText">玫瑰粉 / 杏橙 / 鼠尾草绿</strong>
+          </article>
+          <article>
+            <span>包装与预算</span>
+            <strong id="budgetText">中高端 · ¥368-520</strong>
+          </article>
+          <article>
+            <span>AI 能力</span>
+            <strong id="aiModeText">本地模拟规划</strong>
+          </article>
+        </div>
+      </section>
+    </main>
+
+    <script type="module" src="./src/main.js"></script>
+  </body>
+</html>
