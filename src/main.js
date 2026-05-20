@@ -1,13 +1,21 @@
 import * as THREE from "../vendor/three.module.js";
 
 const flowers = [
-  { id: "rose", name: "玫瑰", note: "经典主花，表达明确", category: "main", role: "focal", color: "#d8587b", accent: "#f5b0bf" },
-  { id: "peony", name: "芍药", note: "大花头，柔软丰盛", category: "main", role: "focal", color: "#ef8fb0", accent: "#fff0f4" },
-  { id: "tulip", name: "郁金香", note: "弯茎副花，增加动态", category: "secondary", role: "mass", color: "#f1885f", accent: "#ffd1a6" },
-  { id: "lily", name: "百合", note: "线条副花，拉开高度", category: "secondary", role: "line", color: "#fff3d7", accent: "#c9953d" },
-  { id: "iris", name: "鸢尾", note: "冷调线条，做外轮廓", category: "secondary", role: "line", color: "#8a6fd6", accent: "#c5b8ff" },
-  { id: "daisy", name: "雏菊", note: "配花填充，补空气感", category: "filler", role: "filler", color: "#f8f3de", accent: "#e4b847" }
+  { id: "rose", name: "玫瑰", note: "真实 GLB 主花模型", category: "main", role: "focal", color: "#d8587b", accent: "#f5b0bf", model: "red_rose", modelScale: 0.82 },
+  { id: "peony", name: "芍药", note: "真实 GLB 大花头替代", category: "main", role: "focal", color: "#ef8fb0", accent: "#fff0f4", model: "flower", modelScale: 0.9 },
+  { id: "tulip", name: "郁金香", note: "真实 GLB 弯茎副花", category: "secondary", role: "mass", color: "#f1885f", accent: "#ffd1a6", model: "tulip", modelScale: 0.88 },
+  { id: "lily", name: "百合", note: "真实 GLB 线条花替代", category: "secondary", role: "line", color: "#fff3d7", accent: "#c9953d", model: "flower", modelScale: 0.78 },
+  { id: "iris", name: "鸢尾", note: "真实 GLB 线条花替代", category: "secondary", role: "line", color: "#8a6fd6", accent: "#c5b8ff", model: "dandelion", modelScale: 0.95 },
+  { id: "daisy", name: "雏菊", note: "真实 GLB 配花模型", category: "filler", role: "filler", color: "#f8f3de", accent: "#e4b847", model: "chamomile", modelScale: 0.62 }
 ];
+
+const modelAssets = {
+  red_rose: { path: "./assets/models/red_rose.glb", label: "Red Rose" },
+  chamomile: { path: "./assets/models/chamomile.glb", label: "Chamomile" },
+  dandelion: { path: "./assets/models/dandelion.glb", label: "Dandelion" },
+  tulip: { path: "./assets/models/tulip.glb", label: "Tulip" },
+  flower: { path: "./assets/models/flower.glb", label: "Flower" }
+};
 
 const foliageOptions = [
   { id: "eucalyptus", name: "尤加利", note: "灰绿叶材，提升高级感", color: "#7f9b83" },
@@ -106,6 +114,9 @@ scene.add(floor);
 const bouquetGroup = new THREE.Group();
 scene.add(bouquetGroup);
 
+const loadedModelScenes = new Map();
+let modelLoadState = "pending";
+
 const shelf = document.querySelector("#flowerShelf");
 const wrapGrid = document.querySelector("#wrapGrid");
 const titleEl = document.querySelector("#bouquetTitle");
@@ -190,6 +201,81 @@ function material(color, roughness = 0.78) {
     side: THREE.DoubleSide,
     envMapIntensity: 0.45
   });
+}
+
+function prepareModelScene(root) {
+  root.traverse((object) => {
+    if (!object.isMesh) return;
+    object.castShadow = true;
+    object.receiveShadow = true;
+    if (object.material) {
+      object.material.side = THREE.DoubleSide;
+      object.material.needsUpdate = true;
+    }
+  });
+  return root;
+}
+
+function fitModelToStem(model, targetHeight) {
+  const box = new THREE.Box3().setFromObject(model);
+  const size = new THREE.Vector3();
+  const center = new THREE.Vector3();
+  box.getSize(size);
+  box.getCenter(center);
+
+  const maxAxis = Math.max(size.x, size.y, size.z) || 1;
+  const scale = targetHeight / maxAxis;
+  model.scale.multiplyScalar(scale);
+
+  const fittedBox = new THREE.Box3().setFromObject(model);
+  const fittedCenter = new THREE.Vector3();
+  fittedBox.getCenter(fittedCenter);
+  model.position.x -= fittedCenter.x;
+  model.position.z -= fittedCenter.z;
+  model.position.y -= fittedBox.max.y;
+}
+
+function tintFlowerModel(model, flower) {
+  const bloomColor = new THREE.Color(flower.color);
+  const accentColor = new THREE.Color(flower.accent);
+
+  model.traverse((object) => {
+    if (!object.isMesh || !object.material) return;
+    const materials = Array.isArray(object.material) ? object.material : [object.material];
+    object.material = Array.isArray(object.material) ? materials.map((entry) => entry.clone()) : object.material.clone();
+
+    const clonedMaterials = Array.isArray(object.material) ? object.material : [object.material];
+    clonedMaterials.forEach((entry, index) => {
+      if (!entry.color) return;
+      const hsl = {};
+      entry.color.getHSL(hsl);
+      const isLeafGreen = hsl.h > 0.18 && hsl.h < 0.48 && hsl.s > 0.18;
+      if (isLeafGreen) return;
+
+      const target = index % 3 === 0 ? accentColor : bloomColor;
+      if (flower.id === "rose" || hsl.l < 0.36 || hsl.s < 0.18) {
+        entry.color.copy(target);
+      } else {
+        entry.color.lerp(target, 0.48);
+      }
+      entry.map = null;
+      entry.vertexColors = false;
+      if (entry.emissive) entry.emissive.lerp(target, 0.08);
+      entry.roughness = Math.min(entry.roughness ?? 0.72, 0.78);
+      entry.needsUpdate = true;
+    });
+  });
+}
+
+function cloneFlowerModel(flower, size) {
+  const source = loadedModelScenes.get(flower.model);
+  if (!source) return null;
+
+  const model = source.clone(true);
+  tintFlowerModel(model, flower);
+  fitModelToStem(model, (flower.modelScale || 0.8) * size);
+  model.rotation.y = Math.PI;
+  return model;
 }
 
 function makePetalGeometry(width, length, cup = 0.08, pinch = 0.22) {
@@ -337,6 +423,12 @@ function makeIris(flower, size, variant) {
 }
 
 function makeBloom(flower, size, variant) {
+  const model = cloneFlowerModel(flower, size);
+  if (model) {
+    model.rotation.y += variant;
+    return model;
+  }
+
   const makers = {
     rose: makeRose,
     tulip: makeTulip,
@@ -346,6 +438,42 @@ function makeBloom(flower, size, variant) {
     iris: makeIris
   };
   return (makers[flower.id] || makeRose)(flower, size, variant);
+}
+
+async function preloadFlowerModels() {
+  if (location.protocol === "file:") {
+    modelLoadState = "file";
+    renderBadge.textContent = "请用本地服务打开真实 3D 模型";
+    return;
+  }
+
+  try {
+    renderBadge.textContent = "正在加载真实花材模型";
+    const { GLTFLoader } = await import("../vendor/examples/jsm/loaders/GLTFLoader.js");
+    const loader = new GLTFLoader();
+    const entries = Object.entries(modelAssets);
+
+    const results = await Promise.allSettled(entries.map(([key, asset]) => new Promise((resolve, reject) => {
+      loader.load(
+        asset.path,
+        (gltf) => {
+          loadedModelScenes.set(key, prepareModelScene(gltf.scene));
+          resolve();
+        },
+        undefined,
+        reject
+      );
+    })));
+
+    const loaded = results.filter((result) => result.status === "fulfilled").length;
+    modelLoadState = loaded > 0 ? "ready" : "fallback";
+    renderBadge.textContent = loaded > 0 ? `真实花材已加载 ${loaded}/${entries.length}` : "基础花束模型已就绪";
+    rebuildBouquet();
+  } catch (error) {
+    console.warn("Flower model loading failed. Falling back to procedural blooms.", error);
+    modelLoadState = "fallback";
+    renderBadge.textContent = "基础花束模型已就绪";
+  }
 }
 
 function makeBud(flower, size = 1) {
@@ -576,7 +704,7 @@ function animate() {
 function simulatePlanning() {
   renderBadge.textContent = "florist arranging";
   setTimeout(() => {
-    renderBadge.textContent = "spiral bouquet ready";
+    renderBadge.textContent = modelLoadState === "ready" ? "真实 3D 花束已生成" : "螺旋花束已生成";
   }, 720);
 }
 
@@ -665,6 +793,7 @@ bindControls();
 syncControls();
 updateUI();
 rebuildBouquet();
+preloadFlowerModels();
 resize();
 animate();
 window.addEventListener("resize", resize);
